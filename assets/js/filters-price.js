@@ -6,11 +6,12 @@ document.addEventListener("DOMContentLoaded", function () {
     const model = document.getElementById('model');
     const kolor = document.getElementById('kolor');
     const type  = document.getElementById('type');
-    
+
     paginationWrapper();
 
     let lastSelectedValues = {
         marka: "",
+        model: "",
         kolor: "",
         type: "",
         priceMin: "",
@@ -26,6 +27,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         let lastSentValues = {
             marka: "",
+            model: "",
             kolor: "",
             type: "",
             priceMin: sessionStorage.getItem('priceMinValue') || "",
@@ -36,17 +38,23 @@ document.addEventListener("DOMContentLoaded", function () {
     
         let selectedValues = {
             marka: marka.value,
+            model: sessionStorage.getItem('modelValue') || "",
             priceMin: sessionStorage.getItem('priceMinValue') || "",
             priceMax: sessionStorage.getItem('priceMaxValue') || "",
             rocznikMin: sessionStorage.getItem('rocznikMinValue') || "",
             rocznikMax: sessionStorage.getItem('rocznikMaxValue') || "",
-            product_type: type.value,
-            product_color: kolor.value,
+            product_type: sessionStorage.getItem('typeValue'),
+            product_color: sessionStorage.getItem('kolorValue'),
         };
             console.log('selected',selectedValues.marka);
             console.log('last',lastSentValues.marka);
 
+            console.log('model value in DOM: ',model.value);
+            console.log('selected model: ',selectedValues.model);
+            console.log('last model: ',lastSentValues.model);
+
         if (selectedValues.marka === lastSentValues.marka &&
+            selectedValues.model === lastSentValues.model &&
             selectedValues.priceMin === lastSentValues.priceMin &&
             selectedValues.priceMax === lastSentValues.priceMax &&
             selectedValues.rocznikMin === lastSentValues.rocznikMin &&
@@ -68,10 +76,10 @@ document.addEventListener("DOMContentLoaded", function () {
             },
    
             success: function (response) {
-                //console.log("AJAX Response:", response); 
+                console.log("AJAX Response:", response); 
                 if (response.success) {
                     let data = response.data;
-                    //console.log('data',data);
+                    console.log('data',data);
 
                     if(data.markas) {
                         let markaSelect = jQuery('marka');
@@ -292,7 +300,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     var maxX2 = strap.offsetWidth - part2.offsetWidth;
                     newX2 = Math.max(minX2, Math.min(newX2, maxX2));
                     part2.style.left = newX2 + "px";
-                    maxBanner.style.left = (newX2 - 30) + "px";
+                    maxBanner.style.left = newX2  + "px";
                 }
 
                 updatePriceValues();
@@ -310,7 +318,7 @@ document.addEventListener("DOMContentLoaded", function () {
         function updatePriceValues() {
             var strapWidth = strap.offsetWidth;
             var part1Left  = part1.offsetLeft;
-            var part2Left  = part2.offsetLeft + 20;
+            var part2Left  = part2.offsetLeft +20;
 
             if (dataType === "rocznik") {
                 var maxPrice = parseFloat(maxText.replace(/\s/g, ''));
@@ -399,10 +407,11 @@ function sendValueToAjax() {
         currentValueToAjax.abort();
     }
 
-    console.log('sendValueToAjax triggered');
+    //console.log('sendValueToAjax triggered');
 
     let lastSentValues = {
         marka: "",
+        model: "",
         product_type: "",
         product_color: "",
         priceMin: "",
@@ -414,6 +423,7 @@ function sendValueToAjax() {
 
     let selectedValues = {
         marka: sessionStorage.getItem('markaValue') || "",
+        model: sessionStorage.getItem('modelValue') || "",
         product_type: sessionStorage.getItem('typeValue') || "",
         product_color: sessionStorage.getItem('kolorValue') || "",
         priceMin: sessionStorage.getItem('priceMinValue') || "",
@@ -423,8 +433,8 @@ function sendValueToAjax() {
         paged: sessionStorage.getItem('pageNumber') || ""
     };
 
-    console.log('selected', selectedValues);
-    console.log('last', lastSentValues);
+    //console.log('selected', selectedValues);
+    //console.log('last', lastSentValues);
 
     const valuesAreEqual = Object.keys(selectedValues).every(key => selectedValues[key] === lastSentValues[key]);
 
@@ -433,7 +443,7 @@ function sendValueToAjax() {
         return;
     }
 
-    console.log('selected for ajax', selectedValues);
+    //console.log('selected for ajax', selectedValues);
 
     currentValueToAjax = jQuery.ajax({
     url: psCodesAjax.ajaxurl,
@@ -444,9 +454,10 @@ function sendValueToAjax() {
         ...selectedValues,
     },
     success: function(response) {
-        console.log('response', response);
+        //console.log('response', response);
 
         sessionStorage.setItem('markaValue', selectedValues.marka);
+        sessionStorage.setItem('modelValue', selectedValues.model);
         sessionStorage.setItem('typeValue', selectedValues.product_type);
         sessionStorage.setItem('kolorValue', selectedValues.product_color);
         sessionStorage.setItem('priceMinValue', selectedValues.priceMin);
@@ -530,4 +541,3 @@ function pageNumber(clickedButton) {
     console.log("Defaulting to page 1");
     return 1;
 }
-

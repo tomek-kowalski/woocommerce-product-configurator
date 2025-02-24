@@ -4,22 +4,24 @@ namespace MainStart\ProductViewer\KatalogFilters\Filters;
 
 class AjaxFilters extends Product_ShortCodes {
 
+    private static function get_term_id_by_name($term_name, $taxonomy) {
+        global $wpdb;
+        $query = "
+            SELECT t.term_id
+            FROM {$wpdb->terms} t
+            INNER JOIN {$wpdb->term_taxonomy} tt ON tt.term_id = t.term_id
+            WHERE t.name = %s AND tt.taxonomy = %s
+            LIMIT 1
+        ";
+        return $wpdb->get_var($wpdb->prepare($query, $term_name, $taxonomy));
+    }
+
     public static function get_models_by_marka($marka_name) {
         global $wpdb;
     
-        function get_term_id_by_name($term_name, $taxonomy) {
-            global $wpdb;
-            $query = "
-                SELECT t.term_id
-                FROM {$wpdb->terms} t
-                INNER JOIN {$wpdb->term_taxonomy} tt ON tt.term_id = t.term_id
-                WHERE t.name = %s AND tt.taxonomy = %s
-                LIMIT 1
-            ";
-            return $wpdb->get_var($wpdb->prepare($query, $term_name, $taxonomy));
-        }
+
     
-        $marka_term_id = get_term_id_by_name($marka_name, 'pa_marka');
+        $marka_term_id = self::get_term_id_by_name($marka_name, 'pa_marka');
         if (!$marka_term_id) {
             //error_log("No marka term found for: $marka_name");
             return [];
@@ -83,7 +85,7 @@ class AjaxFilters extends Product_ShortCodes {
                     }
                 }
 
-                error_log('models data: ' . print_r($models_data,true));
+                //error_log('models data: ' . print_r($models_data,true));
     
                 if (!empty($prices)) {
 
@@ -94,6 +96,14 @@ class AjaxFilters extends Product_ShortCodes {
                 }
             }
         }
+        if ($min_price !== null) {
+            $min_price = floor($min_price / 1000) * 1000;
+        }
+        
+        if ($max_price !== null) {
+            $max_price = ceil($max_price / 1000) * 1000;
+        }
+
         if($min_price && $max_price) {
             $price_html .= '<span class="price-title">Cena</span>';
            
@@ -205,6 +215,176 @@ class AjaxFilters extends Product_ShortCodes {
             'rocznik'     => $rocznik_html,
         ];
     }
+
+    public static function models_query($marka_name, $model_name) {
+        global $wpdb;
+    
+        $marka_term_id = self::get_term_id_by_name($marka_name, 'pa_marka');
+        if (!$marka_term_id) {
+            return [];
+        }
+    
+        $model_term_id = self::get_term_id_by_name($model_name, 'pa_model');
+        if (!$model_term_id) {
+            return [];
+        }
+    
+
+        $product_ids_query = "
+            SELECT tr.object_id
+            FROM {$wpdb->term_relationships} tr
+            INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+            WHERE tt.taxonomy = 'pa_model' AND tt.term_id = %d
+            AND tr.object_id IN (
+                SELECT tr2.object_id
+                FROM {$wpdb->term_relationships} tr2
+                INNER JOIN {$wpdb->term_taxonomy} tt2 ON tr2.term_taxonomy_id = tt2.term_taxonomy_id
+                WHERE tt2.term_id = %d AND tt2.taxonomy = 'pa_marka'
+            )
+        ";
+    
+        $product_ids = $wpdb->get_col($wpdb->prepare($product_ids_query, $model_term_id, $marka_term_id));
+    
+        if (empty($product_ids)) {
+            return [];
+        }
+    
+        $min_price = null;
+        $max_price = null;
+    
+        $price_query = "
+            SELECT pm.post_id, pm.meta_value as price
+            FROM {$wpdb->postmeta} pm
+            WHERE pm.meta_key = '_regular_price'
+            AND pm.post_id IN (" . implode(",", $product_ids) . ")
+        ";
+    
+        $price_results = $wpdb->get_results($price_query);
+    
+        foreach ($price_results as $price) {
+            $price_value = floatval(str_replace([' ', ','], '', $price->price));
+    
+            if ($price_value > 0) {
+                if ($min_price === null || $price_value < $min_price) {
+                    $min_price = $price_value;
+                }
+                if ($max_price === null || $price_value > $max_price) {
+                    $max_price = $price_value;
+                }
+    
+                $models_data[] = [
+                    'post_id' => $price->post_id,
+                    'price' => $price_value
+                ];
+            }
+        }
+
+        if ($min_price !== null) {
+            $min_price = floor($min_price / 1000) * 1000;
+        }
+        
+        if ($max_price !== null) {
+            $max_price = ceil($max_price / 1000) * 1000;
+        }
+    
+        $price_html = '';
+        if ($min_price && $max_price) {
+            $price_html .= '<span class="price-title">Cena</span>';
+            $price_html .= '<div class="slider-container">';
+            $price_html .= '<div id="slider-range-price" class="strap-price"></div>';
+            $price_html .= '<div class="part-price-1"></div>';
+            $price_html .= '<div class="part-price-2"></div>';
+            $price_html .= '</div>';
+    
+            $price_html .= '<div class="price-range">';
+            $price_html .= '<div id="min-price" class="minimum_price" data-value="' . $min_price . '"></div><div>&nbspzł&nbsp</div>';
+            $price_html .= '<p>&nbsp — &nbsp</p>';
+            $price_html .= '<div id="max-price" class="maximum_price" data-value="' . $max_price . '"></div><div>&nbspzł&nbsp</div>';
+            $price_html .= '</div>';
+        }
+
+        $max_rocznik = null;
+        $min_rocznik = null;
+        $rocznik_html = null;
+
+        $rocznik_query = "
+        SELECT DISTINCT t.term_id, t.name
+        FROM {$wpdb->term_relationships} tr
+        INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+        INNER JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
+        WHERE tt.taxonomy = 'pa_rocznik'
+        AND tr.object_id IN (
+            SELECT tr2.object_id
+            FROM {$wpdb->term_relationships} tr2
+            INNER JOIN {$wpdb->term_taxonomy} tt2 ON tr2.term_taxonomy_id = tt2.term_taxonomy_id
+            INNER JOIN {$wpdb->posts} pm ON pm.ID = tr2.object_id  -- Join wp_posts here
+            WHERE tt2.term_id = %d AND tt2.taxonomy = 'pa_marka'
+            AND pm.ID IN (" . implode(",", array_map('intval', $product_ids)) . ")
+        )
+    ";
+    
+        $rocznik_terms = $wpdb->get_results($wpdb->prepare($rocznik_query, $marka_term_id));
+    
+        if ($rocznik_terms) {
+            foreach ($rocznik_terms as $term) {
+                $rocznik_value = intval($term->name);
+            
+                if ($min_rocznik === null || $rocznik_value < $min_rocznik) {
+                    $min_rocznik = $rocznik_value;
+                }
+            
+                if ($max_rocznik === null || $rocznik_value > $max_rocznik) {
+                    $max_rocznik = $rocznik_value;
+                }
+            }
+        }
+
+        if($min_rocznik && $max_rocznik) {
+            $rocznik_html .= '<span class="rocznik-title">Rocznik</span>';
+                   
+            $rocznik_html .= '<div class="slider-container">';
+            $rocznik_html .= '<div id="slider-range-rocznik" class="strap-rocznik"></div>';
+            $rocznik_html .= '<div class="part-rocznik-1"></div>';
+            $rocznik_html .= '<div class="part-rocznik-2"></div>';
+            $rocznik_html .= '</div>';
+
+            $rocznik_html .= '<div class="rocznik-range">';
+            $rocznik_html .= '<div id="min-rocznik" class="minimum_rocznik" data-value="' . $min_rocznik . '"></div>';
+            $rocznik_html .= '<p>&nbsp — &nbsp</p>';
+            $rocznik_html .= '<div id="max-rocznik" class="maximum_rocznik" data-value="' . $max_rocznik . '"></div>';
+            $rocznik_html .= '</div>';
+        }
+    
+        $colors = [];
+        $color_query = "
+            SELECT DISTINCT t.term_id, t.name
+            FROM {$wpdb->term_relationships} tr
+            INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+            INNER JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
+            WHERE tt.taxonomy = 'pa_kolor'
+            AND tr.object_id IN (" . implode(",", $product_ids) . ")
+        ";
+        $colors = $wpdb->get_results($color_query);
+    
+        $types = [];
+        $type_query = "
+            SELECT DISTINCT t.term_id, t.name
+            FROM {$wpdb->term_relationships} tr
+            INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+            INNER JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
+            WHERE tt.taxonomy = 'pa_typ_podwozia'
+            AND tr.object_id IN (" . implode(",", $product_ids) . ")
+        ";
+        $types = $wpdb->get_results($type_query);
+        
+        wp_send_json_success([
+            'colors' => $colors,
+            'types'  => $types,
+            'price'  => $price_html,
+            'rocznik'=> $rocznik_html,
+        ]);
+    }
+    
     
     public static function product_price_filter_query($marka, $model, $rocznikMin, $rocznikMax, $product_type, $product_color) {
         global $wpdb;

@@ -16,14 +16,14 @@ namespace MainStart\ProductViewer\KatalogFilters\Filters;
     error_log('Received AJAX Data: ' . print_r($_POST, true));
 
     $markas  = AjaxFilters::get_models_by_marka($marka);
-    //$models  = AjaxFilters::models_query($marka, $model, $priceMin, $priceMax, $rocznikMin, $rocznikMax, $product_type, $product_color); no finnished
+    $models  = AjaxFilters::models_query($marka, $model);
     $prices  = AjaxFilters::product_price_filter_query($marka, $model, $rocznikMin, $rocznikMax, $product_type, $product_color);
     $rocznik = AjaxFilters::product_rocznik_query($marka, $model, $priceMin, $priceMax, $product_type, $product_color);
     $types   = AjaxFilters::product_type_query($marka, $model, $priceMin, $priceMax, $rocznikMin, $rocznikMax, $product_color);
     $colors  = AjaxFilters::product_color_query($term_id, $priceMin, $priceMax, $rocznikMin, $rocznikMax, $product_type, $product_color);
 
     error_log('markas'. print_r($markas,true));
-    error_log('markas'. print_r($models,true));
+    error_log('models'. print_r($models,true));
 
     wp_send_json_success(compact('models', 'prices', 'rocznik', 'types', 'colors'));
 

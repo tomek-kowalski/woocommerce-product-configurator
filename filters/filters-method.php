@@ -70,9 +70,13 @@ public static function product_price_filter() {
         }
 
         if (!empty($prices)) {
+            $min_price = floor(min($prices) / 1000) * 1000;
+
+            $max_price = ceil(max($prices) / 1000) * 1000;
+
             return array(
-                'min' => number_format(min($prices), 0, ',', ' '),
-                'max' => number_format(max($prices), 0, ',', ' '),
+                'min' => number_format($min_price, 0, ',', ' '),
+                'max' => number_format($max_price, 0, ',', ' ')
             );
         }
     }

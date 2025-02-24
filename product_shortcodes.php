@@ -62,10 +62,17 @@ if ( ! defined( 'WPINC' ) ) {
 
         $response_data = [];
     
-        if ($marka) {
-            $models = AjaxFilters::get_models_by_marka($marka, $priceMin, $priceMax, $rocznikMin, $rocznikMax, $product_type, $product_color);
+        if ($marka && !$model) {
+            $models = AjaxFilters::get_models_by_marka($marka);
             if (!empty($models)) {
                 $response_data = $models;
+            }
+        }
+
+        if ($marka && $model) {
+            $model_selected = AjaxFilters::models_query($marka, $model);
+            if (!empty($models)) {
+                $response_data = $model_selected;
             }
         }
     
@@ -230,7 +237,7 @@ if ( ! defined( 'WPINC' ) ) {
 
         $query = new  \WP_Query($args);
 
-        error_log('product query: ' . print_r($query,true));
+        //error_log('product query: ' . print_r($query,true));
             ob_start();
         if ($query->have_posts()) :
 
