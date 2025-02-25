@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", function () { 
     let wasAjaxPrice = false;
     let wasAjaxRocznik = false;
+    let FilteredValuesinPanel = null;
 
     const marka = document.getElementById('marka');
     const model = document.getElementById('model');
@@ -8,6 +9,37 @@ document.addEventListener("DOMContentLoaded", function () {
     const type  = document.getElementById('type');
 
     paginationWrapper();
+    syncAllDropdowns();
+
+    loadingOnEvent();
+
+    window.addEventListener('popstate', () => {
+    loadingOnEvent();
+
+    });
+
+    function loadingOnEvent() {
+        const markaUrl   = GetURLParamValue('marka') || "";
+        const modelUrl   = GetURLParamValue('model') || "";
+        const kolorUrl   = GetURLParamValue('kolor') || "";
+        const typeUrl    = GetURLParamValue('type') || "";
+        const priceMin   = GetURLParamValue('price_min') || "";
+        const priceMax   = GetURLParamValue('price_max') || "";
+        const rocznikMin = GetURLParamValue('rocznik_min') || "";
+        const rocznikMax = GetURLParamValue('rocznik_max') || "";
+        const stronaURL  = GetURLParamValue('strona') || "";
+        const strona     = stronaURL.replace('strona','')
+    
+        if(markaUrl || modelUrl || kolorUrl ||  typeUrl || priceMin || priceMax || rocznikMin || rocznikMax || strona) {
+    
+            model.setAttribute('disabled', 'true');
+            kolor.setAttribute('disabled', 'true');
+            type.setAttribute('disabled', 'true'); 
+    
+            settingFilteredValuesinPanel();
+            sendValueToAjax();
+        }
+    }
 
     let lastSelectedValues = {
         marka: "",
@@ -19,7 +51,7 @@ document.addEventListener("DOMContentLoaded", function () {
         rocznikMin: "",
         rocznikMax: "",
     };
-    let FilteredValuesinPanel = null;
+
     function settingFilteredValuesinPanel() {
         if (FilteredValuesinPanel !== null) {
             console.log('aborted');
@@ -30,28 +62,28 @@ document.addEventListener("DOMContentLoaded", function () {
             model: "",
             kolor: "",
             type: "",
-            priceMin: sessionStorage.getItem('priceMinValue') || "",
-            priceMax: sessionStorage.getItem('priceMaxValue') || "",
-            rocznikMin: sessionStorage.getItem('rocznikMinValue') || "",
-            rocznikMax: sessionStorage.getItem('rocznikMaxValue') || "",
+            priceMin:     GetURLParamValue('price_min') || "",
+            priceMax:     GetURLParamValue('price_min') || "",
+            rocznikMin:   GetURLParamValue('price_min') || "",
+            rocznikMax:   GetURLParamValue('price_min') || "",
         };
     
         let selectedValues = {
-            marka: marka.value,
-            model: sessionStorage.getItem('modelValue') || "",
-            priceMin: sessionStorage.getItem('priceMinValue') || "",
-            priceMax: sessionStorage.getItem('priceMaxValue') || "",
-            rocznikMin: sessionStorage.getItem('rocznikMinValue') || "",
-            rocznikMax: sessionStorage.getItem('rocznikMaxValue') || "",
-            product_type: sessionStorage.getItem('typeValue'),
-            product_color: sessionStorage.getItem('kolorValue'),
+            marka:         GetURLParamValue('marka') || "",
+            model:         GetURLParamValue('model') || "",
+            priceMin:      GetURLParamValue('price_min') || "",
+            priceMax:      GetURLParamValue('price_max') || "",
+            rocznikMin:    GetURLParamValue('rocznik_min') || "",
+            rocznikMax:    GetURLParamValue('rocznik_max') || "",
+            product_type:  GetURLParamValue('type') || "",
+            product_color: GetURLParamValue('kolor') || "",
         };
-            console.log('selected',selectedValues.marka);
-            console.log('last',lastSentValues.marka);
+            //console.log('selected',selectedValues.marka);
+            //console.log('last',lastSentValues.marka);
 
-            console.log('model value in DOM: ',model.value);
-            console.log('selected model: ',selectedValues.model);
-            console.log('last model: ',lastSentValues.model);
+            //console.log('model value in DOM: ',model.value);
+            //console.log('selected model: ',selectedValues.model);
+            //console.log('last model: ',lastSentValues.model);
 
         if (selectedValues.marka === lastSentValues.marka &&
             selectedValues.model === lastSentValues.model &&
@@ -76,10 +108,10 @@ document.addEventListener("DOMContentLoaded", function () {
             },
    
             success: function (response) {
-                console.log("AJAX Response:", response); 
+                //console.log("AJAX Response:", response); 
                 if (response.success) {
                     let data = response.data;
-                    console.log('data',data);
+                    //console.log('data',data);
 
                     if(data.markas) {
                         let markaSelect = jQuery('marka');
@@ -112,7 +144,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         let colorSelect = jQuery('#kolor');
                         colorSelect.html('<option value="">Kolor</option>');
                         jQuery.each(data.colors, function (index, color) {
-                            console.log('data.colors', color); 
+                            //console.log('data.colors', color); 
                             colorSelect.append('<option value="' + color.name + '" data-id="' + color.term_id + '">' + color.name + '</option>');
                         });
                     }
@@ -121,7 +153,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         let typeSelect = jQuery('#type');
                         typeSelect.html('<option value="">Nadwozie</option>');
                         jQuery.each(data.types, function (index, type) {
-                            console.log('data.type', type); 
+                            //console.log('data.type', type); 
                             typeSelect.append('<option value="' + type.name + '" data-id="' + type.term_id + '">' + type.name + '</option>');
                         });
                     }
@@ -152,6 +184,10 @@ document.addEventListener("DOMContentLoaded", function () {
                         });
                     }
                 }
+                model.removeAttribute('disabled');
+                kolor.removeAttribute('disabled');
+                type.removeAttribute('disabled');
+                syncAllDropdowns();
             },
             error: function(xhr, status, error) {
                 console.error('AJAX error:', status, error);
@@ -165,10 +201,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (lastSelectedValues[id] !== value) {
             lastSelectedValues[id] = value;
-            console.log(`Changed: ${id}, Selected Value: ${value}`);
+            //console.log(`Changed: ${id}, Selected Value: ${value}`);
 
-            sessionStorage.setItem(`${id}Value`,value)
-            
+            model.setAttribute('disabled', 'true');
+            kolor.setAttribute('disabled', 'true');
+            type.setAttribute('disabled', 'true'); 
+
+            pushParamsToUrl(event.target);
             settingFilteredValuesinPanel();
 
             const selectElement = document.getElementById(id);
@@ -180,6 +219,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (value) {
                 const selectedOption = Array.from(options).find(option => option.value === value);
                 if (selectedOption) {
+                    //console.log('selected option',selectedOption );
                     selectedOption.setAttribute('selected', 'selected');
                 }
             }
@@ -188,12 +228,157 @@ document.addEventListener("DOMContentLoaded", function () {
                 isHandleRequestInProgress = true;
 
             sendValueToAjax();
-
         }
         }
         wasAjaxPrice = false;
         wasAjaxRocznik = false;
     }
+
+
+    function pushParamsToUrl(newMinPrice, newMaxPrice, dataType) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const previousMarka = sessionStorage.getItem('markaValue');
+    
+        if (dataType === "price" && newMinPrice && newMaxPrice) {
+            urlParams.set('price_min', newMinPrice);
+            urlParams.set('price_max', newMaxPrice);
+        } else if (dataType === "rocznik" && newMinPrice && newMaxPrice) {
+            urlParams.set('rocznik_min', newMinPrice);
+            urlParams.set('rocznik_max', newMaxPrice);
+        }
+    
+        let newMarka = '';
+    
+        Object.entries(lastSelectedValues).forEach(([key, value]) => {
+            if (value && value !== '') {
+                if (key === "marka") {
+                    newMarka = value;
+                }
+                urlParams.set(key, value);
+            }
+        });
+    
+        const page = GetURLParam('strona');
+        if (page) {
+            urlParams.delete('strona');
+        }
+    
+        //console.log('Current URL Params before deletion:', urlParams.toString());
+    
+        let urlMarkaChanged = false;
+    
+        //console.log('Marka Change Condition:', newMarka !== previousMarka);
+    
+        if (newMarka && newMarka !== previousMarka) {
+            console.log('Marka has changed. Removing old filters.');
+    
+            ['kolor', 'type', 'model', 'rocznik_min', 'rocznik_max', 'price_min', 'price_max'].forEach(param => {
+                if (urlParams.has(param)) {
+                    urlParams.delete(param);
+                }
+            });
+    
+            if (newMarka) {
+                //console.log('Adding new Marka to URL:', newMarka);
+                urlParams.set('marka', newMarka);
+                urlMarkaChanged = true;
+            }
+        }
+
+        if (urlMarkaChanged) {
+            sessionStorage.setItem('markaValue', newMarka);
+            //console.log('New Marka:', newMarka);
+        }
+    
+
+    
+        const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+        console.log('New URL:', newUrl);
+ 
+        if (urlParams.toString()) {
+            window.history.pushState({ path: newUrl }, '', newUrl);
+        } else {
+            window.history.pushState({ path: window.location.pathname }, '', window.location.pathname);
+        }
+        sessionStorage.setItem("markaValue",  newMarka);
+    }
+    
+    
+    
+    
+    function GetURLParam(name) {
+        return (new URLSearchParams(window.location.search)).get(name);
+    }
+
+    function GetURLParamValue(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        //console.log('getParamURL', urlParams.get(name));
+        return urlParams.has(name) ? urlParams.get(name) : null;
+    }
+
+
+    function syncDropdownWithURL(dropdown, paramKey) {
+
+        //console.log('dropdown',dropdown);
+        const params = getParamsFromURL();
+        let paramValue = '';
+    
+        const param = params.find(p => p.tax === paramKey);
+        if (param) {
+            paramValue = param.value;
+        }
+    
+        //console.log('Syncing with paramKey:', paramKey, 'Value:', paramValue);
+    
+        if (!paramValue) {
+            return;
+        }
+    
+        let matched = false;
+    
+        Array.from(dropdown.options).forEach((option) => {
+            if (option.value === paramValue) {
+                option.selected = true;
+                matched = true;
+            }
+        });
+    
+        if (!matched) {
+            dropdown.selectedIndex = 0;
+        }  else {
+            dropdown.value = paramValue;
+        }
+
+        dropdown.value = paramValue;
+    }
+
+
+    function getParamsFromURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const params = [];
+    
+    urlParams.forEach((value, key) => {
+        params.push({ tax: key, value });
+    });
+
+
+
+    return params;
+    }
+
+
+    function syncAllDropdowns() {
+    const markaDropdown = document.getElementById('marka');
+    const modelDropdown = document.getElementById('model');
+    const kolorDropdown = document.getElementById('kolor');
+    const typeDropdown = document.getElementById('type');
+
+    syncDropdownWithURL(markaDropdown, 'marka');
+    syncDropdownWithURL(modelDropdown, 'model');
+    syncDropdownWithURL(kolorDropdown, 'kolor');
+    syncDropdownWithURL(typeDropdown, 'type');
+    }
+
 
     function createSlider({
         strapSelector,
@@ -247,8 +432,8 @@ document.addEventListener("DOMContentLoaded", function () {
         var minPriceParagraph = document.createElement("p");
         var maxPriceParagraph = document.createElement("p");
 
-        console.log('minText before formatting:', minText);
-        console.log('maxText before formatting:', maxText);
+        //console.log('minText before formatting:', minText);
+        //console.log('maxText before formatting:', maxText);
 
         minPriceParagraph.textContent = minText.toLocaleString().replace(/,/g, ' ');
         maxPriceParagraph.textContent = maxText.toLocaleString().replace(/,/g, ' ');
@@ -269,6 +454,8 @@ document.addEventListener("DOMContentLoaded", function () {
         document.addEventListener("mouseup", stopDragging);
         document.addEventListener("touchend", stopDragging);
 
+        syncSliderWithURL();
+
         function startDragging(e) {
             if (e.button === 0 || e.type === "touchstart") {    
                 e.preventDefault();
@@ -284,7 +471,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
         function moveSlider(e) {
             if (isDragging1 || isDragging2) {
-                console.log('was clicked)')
                 e.preventDefault();
                 if (isDragging1) {
                     var newX1 = e.type === "mousemove" ? e.clientX - strap.getBoundingClientRect().left - offsetX1 : e.touches[0].clientX - strap.getBoundingClientRect().left - offsetX1;
@@ -357,6 +543,45 @@ document.addEventListener("DOMContentLoaded", function () {
 
             sessionStorage.setItem(dataType + 'MinValue', newMinPrice);
             sessionStorage.setItem(dataType + 'MaxValue', newMaxPrice);
+
+            pushParamsToUrl(newMinPrice, newMaxPrice, dataType); 
+
+        }
+
+        function syncSliderWithURL() {
+
+            let paramMin;
+            let paramMax;
+
+            if(dataType === "price") {
+                paramMin = GetURLParam('price_min');
+                paramMax = GetURLParam('price_max');
+            }
+            if(dataType === "") {
+                paramMin = GetURLParam('rocznik_min');
+                paramMax = GetURLParam('rocznik_max');
+            }
+
+            if (paramMin && paramMax) {
+                const strapWidth = strap.offsetWidth;
+                const maxPrice = parseFloat(maxText.replace(/\s/g, ''));
+                const minPrice = parseFloat(minText.replace(/\s/g, ''));
+        
+                const minPriceRatio = (paramMin - minPrice) / (maxPrice - minPrice);
+                const maxPriceRatio = (paramMax - minPrice) / (maxPrice - minPrice);
+        
+                const newLeftPart1 = minPriceRatio * strapWidth;
+                const newLeftPart2 = maxPriceRatio * strapWidth;
+
+                part1.style.left = newLeftPart1 + 'px';
+                part2.style.left = newLeftPart2 + 'px';
+        
+                minPriceParagraph.textContent = paramMin.toLocaleString().replace(/,/g, ' ');
+                maxPriceParagraph.textContent = paramMax.toLocaleString().replace(/,/g, ' ');
+        
+                updateAttribute(minBanner, 'data-value', paramMin);
+                updateAttribute(maxBanner, 'data-value', paramMax);
+            }
         }
 
         function updateStrapColor() {
@@ -438,7 +663,9 @@ function sendValueToAjax() {
 
     const valuesAreEqual = Object.keys(selectedValues).every(key => selectedValues[key] === lastSentValues[key]);
 
-    if (valuesAreEqual || (selectedValues.marka === '' && selectedValues.product_type === '' && selectedValues.product_color === '' && selectedValues.priceMin === '' && selectedValues.priceMax === '' && selectedValues.rocznikMin === '' && selectedValues.rocznikMax === '' && selectedValues.paged === '')) {
+    if (valuesAreEqual || (selectedValues.marka === '' && selectedValues.product_type === '' && selectedValues.product_color === '' && 
+        selectedValues.priceMin === '' && selectedValues.priceMax === '' && selectedValues.rocznikMin === '' && selectedValues.rocznikMax === '' && 
+        selectedValues.paged === '')) {
         console.log("No changes detected, skipping AJAX.");
         return;
     }
@@ -455,15 +682,6 @@ function sendValueToAjax() {
     },
     success: function(response) {
         //console.log('response', response);
-
-        sessionStorage.setItem('markaValue', selectedValues.marka);
-        sessionStorage.setItem('modelValue', selectedValues.model);
-        sessionStorage.setItem('typeValue', selectedValues.product_type);
-        sessionStorage.setItem('kolorValue', selectedValues.product_color);
-        sessionStorage.setItem('priceMinValue', selectedValues.priceMin);
-        sessionStorage.setItem('priceMaxValue', selectedValues.priceMax);
-        sessionStorage.setItem('rocznikMinValue', selectedValues.rocznikMin);
-        sessionStorage.setItem('rocznikMaxValue', selectedValues.rocznikMax);
         sessionStorage.setItem('pageNumber', selectedValues.paged);
 
         const pagination_target = document.querySelector('.pagination-frame');
@@ -496,6 +714,14 @@ function paginationWrapper() {
                 button.addEventListener('click', ()=> {
                     sessionStorage.removeItem('pageNumber');
                     paginationFn(button);
+                    const panel = document.querySelector('.panel');
+
+                    if (panel) {
+                        panel.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
                 })
             });
     
@@ -504,6 +730,7 @@ function paginationWrapper() {
                 const pageButton = paginationContainer.querySelector(`.page-link[data-page="${savedPageNumber}"]`);
                 if (pageButton) {
                     paginationFn(pageButton);
+
                 }
             }
 
@@ -522,10 +749,11 @@ function paginationFn(clickedButton) {
 
     let currentPageNumber = pageNumber(clickedButton);
     
-    console.log("Current Page Number:", currentPageNumber);
-
     sessionStorage.setItem('pageNumber', currentPageNumber);
+    pushPageToUrl(currentPageNumber);
     sendValueToAjax();
+    
+ 
 }
 
 function pageNumber(clickedButton) {
@@ -538,6 +766,18 @@ function pageNumber(clickedButton) {
         }
     }
 
-    console.log("Defaulting to page 1");
     return 1;
+}
+
+function pushPageToUrl(pageNumber) {
+
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set('strona', pageNumber);
+    const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+    window.history.pushState({ path: newUrl }, '', newUrl);
+}
+
+
+function GetURLParam(name) {
+    return (new URLSearchParams(window.location.search)).get(name);
 }
