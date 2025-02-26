@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let wasAjaxRocznik = false;
     let FilteredValuesinPanel = null;
 
+
     const marka = document.getElementById('marka');
     const model = document.getElementById('model');
     const kolor = document.getElementById('kolor');
@@ -14,9 +15,25 @@ document.addEventListener("DOMContentLoaded", function () {
     loadingOnEvent();
 
     window.addEventListener('popstate', () => {
+
     loadingOnEvent();
 
     });
+
+    function buildUrlFromParams(marka, model, kolor, type, priceMin, priceMax, rocznikMin, rocznikMax, strona) {
+        let newUrl = window.location.pathname + '?';
+        if (marka) newUrl += 'marka=' + marka + '&';
+        if (model) newUrl += 'model=' + model + '&';
+        if (kolor) newUrl += 'kolor=' + kolor + '&';
+        if (type) newUrl += 'type=' + type + '&';
+        if (priceMin) newUrl += 'price_min=' + priceMin + '&';
+        if (priceMax) newUrl += 'price_max=' + priceMax + '&';
+        if (rocznikMin) newUrl += 'rocznik_min=' + rocznikMin + '&';
+        if (rocznikMax) newUrl += 'rocznik_max=' + rocznikMax + '&';
+        if (strona) newUrl += 'strona=' + strona + '&';
+    
+        return newUrl.slice(0, -1);
+    }
 
     function loadingOnEvent() {
         const markaUrl   = GetURLParamValue('marka') || "";
@@ -28,7 +45,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const rocznikMin = GetURLParamValue('rocznik_min') || "";
         const rocznikMax = GetURLParamValue('rocznik_max') || "";
         const stronaURL  = GetURLParamValue('strona') || "";
-        const strona     = stronaURL.replace('strona','')
+        const strona     = stronaURL.replace('strona','') || "";
     
         if(markaUrl || modelUrl || kolorUrl ||  typeUrl || priceMin || priceMax || rocznikMin || rocznikMax || strona) {
     
@@ -36,8 +53,15 @@ document.addEventListener("DOMContentLoaded", function () {
             kolor.setAttribute('disabled', 'true');
             type.setAttribute('disabled', 'true'); 
     
-            settingFilteredValuesinPanel();
-            sendValueToAjax();
+            settingFilteredValuesinPanelonLoad();
+            sendValueToAjaxOnLoad();
+            const katalog = document.querySelector('.katalog-frame');
+            if(katalog) {
+                katalog.classList.add('loading-ajax');
+            }
+
+            const newUrl = buildUrlFromParams(markaUrl, modelUrl, kolorUrl, typeUrl, priceMin, priceMax, rocznikMin, rocznikMax, strona);
+            history.replaceState(null, null, newUrl);
         }
     }
 
@@ -195,6 +219,149 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    function settingFilteredValuesinPanelonLoad() {
+        if (FilteredValuesinPanel !== null) {
+            console.log('aborted');
+            FilteredValuesinPanel.abort();
+        }
+        let lastSentValues = {
+            marka: "",
+            model: "",
+            kolor: "",
+            type: "",
+            priceMin:     GetURLParamValue('price_min') || "",
+            priceMax:     GetURLParamValue('price_min') || "",
+            rocznikMin:   GetURLParamValue('price_min') || "",
+            rocznikMax:   GetURLParamValue('price_min') || "",
+        };
+    
+        let selectedValues = {
+            marka:         GetURLParamValue('marka') || "",
+            model:         GetURLParamValue('model') || "",
+            priceMin:      GetURLParamValue('price_min') || "",
+            priceMax:      GetURLParamValue('price_max') || "",
+            rocznikMin:    GetURLParamValue('rocznik_min') || "",
+            rocznikMax:    GetURLParamValue('rocznik_max') || "",
+            product_type:  GetURLParamValue('type') || "",
+            product_color: GetURLParamValue('kolor') || "",
+        };
+            //console.log('selected',selectedValues.marka);
+            //console.log('last',lastSentValues.marka);
+
+            //console.log('model value in DOM: ',model.value);
+            //console.log('selected model: ',selectedValues.model);
+            //console.log('last model: ',lastSentValues.model);
+
+        if (selectedValues.marka === lastSentValues.marka &&
+            selectedValues.model === lastSentValues.model &&
+            selectedValues.priceMin === lastSentValues.priceMin &&
+            selectedValues.priceMax === lastSentValues.priceMax &&
+            selectedValues.rocznikMin === lastSentValues.rocznikMin &&
+            selectedValues.rocznikMax === lastSentValues.rocznikMax &&
+            selectedValues.product_type === lastSentValues.product_type &&
+            selectedValues.product_color === lastSentValues.product_color) {
+            console.log("No changes detected, skipping AJAX.");
+            return;
+        }
+    
+        console.log("Changes detected, sending AJAX.");
+        jQuery.ajax({
+            url: psCodesAjax.ajaxurl,
+            type: 'post',
+            data: {
+                action: 'filter_callback_onload',
+                nonce: psCodesAjax.nonce,
+                ...selectedValues
+            },
+   
+            success: function (response) {
+                //console.log("AJAX Response:", response); 
+                if (response.success) {
+                    let data = response.data;
+                    //console.log('data',data);
+
+                    if(data.markas) {
+                        let markaSelect = jQuery('marka');
+                        markaSelect.html('<option value="">Marka</option>');
+                        jQuery.each(data.markas, function (name, id) {
+                            markaSelect.append('<option value="' + name + '" data-id="' + id + '">' + name + '</option>');
+                            
+                        });
+                    }
+                    if (data.models) {
+                        let modelSelect = jQuery('#model');
+                        modelSelect.html('<option value="">Model</option>');
+                        
+                        jQuery.each(data.models, function (name, id) {
+                            modelSelect.append('<option value="' + name + '" data-id="' + id.term_id + '">' + name + '</option>');
+                        });
+                    }
+
+                    if (data.price) {
+                        wasAjaxPrice = true;
+                        jQuery('#price-block').html(data.price);
+                    }
+                                        
+                    if (data.rocznik) {
+                        wasAjaxRocznik = true;
+                        jQuery('#rocznik-block').html(data.rocznik);
+                    }
+                    
+                    if(data.colors) {
+                        let colorSelect = jQuery('#kolor');
+                        colorSelect.html('<option value="">Kolor</option>');
+                        jQuery.each(data.colors, function (index, color) {
+                            //console.log('data.colors', color); 
+                            colorSelect.append('<option value="' + color.name + '" data-id="' + color.term_id + '">' + color.name + '</option>');
+                        });
+                    }
+                
+                    if(data.types) {
+                        let typeSelect = jQuery('#type');
+                        typeSelect.html('<option value="">Nadwozie</option>');
+                        jQuery.each(data.types, function (index, type) {
+                            //console.log('data.type', type); 
+                            typeSelect.append('<option value="' + type.name + '" data-id="' + type.term_id + '">' + type.name + '</option>');
+                        });
+                    }
+
+                    if (wasAjaxPrice) {
+
+                        createSlider({
+                            strapSelector: ".strap-price",
+                            part1Selector: ".part-price-1",
+                            part2Selector: ".part-price-2",
+                            minBannerSelector: ".minimum_price",
+                            maxBannerSelector: ".maximum_price",
+                            minDataValue: document.querySelector(".minimum_price").getAttribute('data-value'),
+                            maxDataValue: document.querySelector(".maximum_price").getAttribute('data-value'),
+                            dataType: 'price'
+                        });
+                    }
+                    if(wasAjaxRocznik) {
+                        createSlider({
+                            strapSelector: ".strap-rocznik",
+                            part1Selector: ".part-rocznik-1",
+                            part2Selector: ".part-rocznik-2",
+                            minBannerSelector: ".minimum_rocznik",
+                            maxBannerSelector: ".maximum_rocznik",
+                            minDataValue: parseInt(document.querySelector(".minimum_rocznik").getAttribute('data-value')),
+                            maxDataValue: parseInt(document.querySelector(".maximum_rocznik").getAttribute('data-value')),
+                            dataType: 'rocznik'
+                        });
+                    }
+                }
+                model.removeAttribute('disabled');
+                kolor.removeAttribute('disabled');
+                type.removeAttribute('disabled');
+                syncAllDropdowns();
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX error:', status, error);
+            }
+        });
+    }
+
     let isHandleRequestInProgress = false;
     function handleSelectChange(event) {
         const { id, value } = event.target;
@@ -227,6 +394,10 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!isHandleRequestInProgress) {
                 isHandleRequestInProgress = true;
 
+                const katalog = document.querySelector('.katalog-frame');
+                if(katalog) {
+                    katalog.classList.add('loading-ajax');
+                }
             sendValueToAjax();
         }
         }
@@ -261,6 +432,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const page = GetURLParam('strona');
         if (page) {
             urlParams.delete('strona');
+            sessionStorage.removeItem('pageNumber');
         }
     
         //console.log('Current URL Params before deletion:', urlParams.toString());
@@ -315,7 +487,6 @@ document.addEventListener("DOMContentLoaded", function () {
         //console.log('getParamURL', urlParams.get(name));
         return urlParams.has(name) ? urlParams.get(name) : null;
     }
-
 
     function syncDropdownWithURL(dropdown, paramKey) {
 
@@ -398,7 +569,6 @@ document.addEventListener("DOMContentLoaded", function () {
             return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
         }
 
-
         var strap = document.querySelector(strapSelector);
         var part1 = document.querySelector(part1Selector);
         var part2 = document.querySelector(part2Selector);
@@ -453,6 +623,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         document.addEventListener("mouseup", stopDragging);
         document.addEventListener("touchend", stopDragging);
+        
+
 
         syncSliderWithURL();
 
@@ -497,8 +669,20 @@ document.addEventListener("DOMContentLoaded", function () {
         function stopDragging() {
             isDragging1 = false;
             isDragging2 = false;
-            
-            sendValueToAjax();
+
+            const priceMin   = GetURLParamValue('price_min') || "";
+            const priceMax   = GetURLParamValue('price_max') || "";
+            const rocznikMin = GetURLParamValue('rocznik_min') || "";
+            const rocznikMax = GetURLParamValue('rocznik_max') || "";
+
+            if(priceMin || priceMax || rocznikMin || rocznikMax) {
+                const katalog = document.querySelector('.katalog-frame');
+                if(katalog) {
+                    katalog.classList.add('loading-ajax');
+                }
+                
+                sendValueToAjax();
+            }
         }
 
         function updatePriceValues() {
@@ -622,13 +806,17 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 });
 
-
+function GetURLParamValue(name) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.has(name) ? urlParams.get(name) : null;
+}
 
 let currentValueToAjax = null;
 function sendValueToAjax() {
 
 
     if (currentValueToAjax !== null) {
+        console.log('aborted auto value')
         currentValueToAjax.abort();
     }
 
@@ -647,14 +835,14 @@ function sendValueToAjax() {
     };
 
     let selectedValues = {
-        marka: sessionStorage.getItem('markaValue') || "",
-        model: sessionStorage.getItem('modelValue') || "",
-        product_type: sessionStorage.getItem('typeValue') || "",
-        product_color: sessionStorage.getItem('kolorValue') || "",
-        priceMin: sessionStorage.getItem('priceMinValue') || "",
-        priceMax: sessionStorage.getItem('priceMaxValue') || "",
-        rocznikMin: sessionStorage.getItem('rocznikMinValue') || "",
-        rocznikMax: sessionStorage.getItem('rocznikMaxValue') || "",
+        marka:         GetURLParamValue('marka') || "",
+        model:         GetURLParamValue('model') || "",
+        priceMin:      GetURLParamValue('price_min') || "",
+        priceMax:      GetURLParamValue('price_max') || "",
+        rocznikMin:    GetURLParamValue('rocznik_min') || "",
+        rocznikMax:    GetURLParamValue('rocznik_max') || "",
+        product_type:  GetURLParamValue('type') || "",
+        product_color: GetURLParamValue('kolor') || "",
         paged: sessionStorage.getItem('pageNumber') || ""
     };
 
@@ -693,6 +881,65 @@ function sendValueToAjax() {
         
         if (pagination_target) {
             pagination_target.innerHTML = response.data.auto_pagination;
+        }
+
+        const katalog = document.querySelector('.katalog-frame');
+        if (katalog) {
+            katalog.classList.remove('loading-ajax');
+        }
+        paginationWrapper();
+    }
+});
+}
+
+let currentValueToAjaxOnLoad = null;
+function sendValueToAjaxOnLoad() {
+
+
+    if (currentValueToAjaxOnLoad !== null) {
+        console.log('aborted auto value')
+        currentValueToAjax.abort();
+    }
+    let selectedValues = {
+        marka:         GetURLParamValue('marka') || "",
+        model:         GetURLParamValue('model') || "",
+        priceMin:      GetURLParamValue('price_min') || "",
+        priceMax:      GetURLParamValue('price_max') || "",
+        rocznikMin:    GetURLParamValue('rocznik_min') || "",
+        rocznikMax:    GetURLParamValue('rocznik_max') || "",
+        product_type:  GetURLParamValue('type') || "",
+        product_color: GetURLParamValue('kolor') || "",
+        paged: sessionStorage.getItem('pageNumber') || ""
+    };
+
+    //console.log('selected for ajax', selectedValues);
+
+    currentValueToAjax = jQuery.ajax({
+    url: psCodesAjax.ajaxurl,
+    type: 'post',
+    data: {
+        action: 'auto_callback',
+        nonce: psCodesAjax.nonce,
+        ...selectedValues,
+    },
+    success: function(response) {
+        //console.log('response', response);
+        sessionStorage.setItem('pageNumber', selectedValues.paged);
+
+        const pagination_target = document.querySelector('.pagination-frame');
+        const target = document.querySelector('#initial');
+        
+        if (target) {
+            target.innerHTML = response.data.auto_product;
+        }
+        
+        if (pagination_target) {
+            pagination_target.innerHTML = response.data.auto_pagination;
+        }
+
+        const katalog = document.querySelector('.katalog-frame');
+        if (katalog) {
+            katalog.classList.remove('loading-ajax');
         }
         paginationWrapper();
     }
@@ -751,6 +998,11 @@ function paginationFn(clickedButton) {
     
     sessionStorage.setItem('pageNumber', currentPageNumber);
     pushPageToUrl(currentPageNumber);
+
+    const katalog = document.querySelector('.katalog-frame');
+    if(katalog) {
+        katalog.classList.add('loading-ajax');
+    }
     sendValueToAjax();
     
  
@@ -781,3 +1033,4 @@ function pushPageToUrl(pageNumber) {
 function GetURLParam(name) {
     return (new URLSearchParams(window.location.search)).get(name);
 }
+

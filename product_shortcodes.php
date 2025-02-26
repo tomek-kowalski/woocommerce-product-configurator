@@ -31,6 +31,8 @@ if ( ! defined( 'WPINC' ) ) {
          add_action('wp_ajax_auto_callback', [$this,'auto_callback' ]);
          add_action('wp_ajax_filter_callback', [$this, 'filter_callback']);
          add_action('wp_ajax_nopriv_filter_callback', [$this, 'filter_callback']);
+         add_action('wp_ajax_filter_callback_onload', [$this, 'filter_callback_onload']);
+         add_action('wp_ajax_nopriv_filter_callback_onload', [$this, 'filter_callback_onload']);
          
      }
 
@@ -71,6 +73,71 @@ if ( ! defined( 'WPINC' ) ) {
 
         if ($marka && $model) {
             $model_selected = AjaxFilters::models_query($marka, $model);
+            if (!empty($models)) {
+                $response_data = $model_selected;
+            }
+        }
+    
+        if ($priceMin || $priceMax) {
+            $prices = AjaxFilters::product_price_filter_query($marka, $model, $rocznikMin, $rocznikMax, $product_type, $product_color);
+            if (!empty($prices)) {
+                $response_data['prices'] = $prices;
+            }
+        }
+    
+        if ($rocznikMin || $rocznikMax) {
+            $rocznik = AjaxFilters::product_rocznik_query($marka, $model, $priceMin, $priceMax, $product_type, $product_color);
+            if (!empty($rocznik)) {
+                $response_data['rocznik'] = $rocznik;
+            }
+        }
+    
+        if ($product_type) {
+            $types = AjaxFilters::product_type_query($marka, $model, $priceMin, $priceMax, $rocznikMin, $rocznikMax, $product_color);
+            if (!empty($types)) {
+                $response_data['types'] = $types;
+            }
+        }
+    
+        if ($product_color) {
+            $colors = AjaxFilters::product_color_query($marka, $model, $priceMin, $priceMax, $rocznikMin, $rocznikMax, $product_type);
+            if (!empty($colors)) {
+                $response_data['colors'] = $colors;
+            }
+        }
+    
+        //error_log('Response Data: ' . print_r($response_data, true));
+    
+        wp_send_json_success($response_data);
+        
+        wp_die();
+    }
+
+    public function filter_callback_onload() {
+        check_ajax_referer('psCodesAjax', 'nonce');
+        
+        //error_log('Nonce check passed.');
+    
+        $marka         = isset($_POST['marka']) ? sanitize_text_field($_POST['marka']) : '';
+        $model         = isset($_POST['model']) ? sanitize_text_field($_POST['model']) : '';
+        $priceMin      = isset($_POST['priceMin']) ? sanitize_text_field($_POST['priceMin']) : '';
+        $priceMax      = isset($_POST['priceMax']) ? sanitize_text_field($_POST['priceMax']) : '';
+        $rocznikMin    = isset($_POST['rocznikMin']) ? sanitize_text_field($_POST['rocznikMin']) : '';
+        $rocznikMax    = isset($_POST['rocznikMax']) ? sanitize_text_field($_POST['rocznikMax']) : '';
+        $product_type  = isset($_POST['product_type']) ? sanitize_text_field($_POST['product_type']) : '';
+        $product_color = isset($_POST['product_color']) ? sanitize_text_field($_POST['product_color']) : '';
+
+        $response_data = [];
+    
+        if ($marka && !$model) {
+            $models = AjaxFilters::get_models_by_marka($marka);
+            if (!empty($models)) {
+                $response_data = $models;
+            }
+        }
+
+        if ($marka && $model) {
+            $model_selected = AjaxFilters::models_query_onLoad($marka, $model);
             if (!empty($models)) {
                 $response_data = $model_selected;
             }
@@ -376,6 +443,8 @@ if ( ! defined( 'WPINC' ) ) {
                 'nonce' => wp_create_nonce('psCodesAjax')
             ]);
             wp_enqueue_script('filters-price');
+        }
+        if(is_page('realizacje-2') && is_page('katalog')) {
             wp_enqueue_script('lazy-loading', PS_URL . 'assets/js/file-loading.js', array('jquery'), PS_VERSION, true);
         }
     }    
